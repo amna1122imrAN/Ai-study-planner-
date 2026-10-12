@@ -1,0 +1,477 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Study Planner</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    header {
+      background: #1d4ed8;
+      color: white;
+      text-align: center;
+      padding: 30px 15px;
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+    }
+
+    .container {
+      max-width: 950px;
+      margin: 25px auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 22px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 14px #0000000d;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 15px 0 7px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      font-size: 15px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 17px;
+      margin-top: 15px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    button:hover {
+      background: #1e40af;
+    }
+
+    .download {
+      background: #15803d;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: #eff6ff;
+      padding: 18px 10px;
+      text-align: center;
+      border-radius: 10px;
+    }
+
+    .stat h2 {
+      color: #1d4ed8;
+      margin: 5px;
+    }
+
+    .progress {
+      background: #e2e8f0;
+      height: 14px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #progressBar {
+      height: 100%;
+      width: 0;
+      background: #16a34a;
+      transition: width 0.3s;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 11px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+      background: #eff6ff;
+    }
+
+    .done {
+      color: #15803d;
+      font-weight: bold;
+    }
+
+    .message {
+      color: #b91c1c;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .container {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>📚 AI Study Planner</h1>
+  <p>Plan smarter, study better, achieve your goals!</p>
+</header>
+
+<main class="container">
+
+  <section class="card">
+    <h2>Create Your Study Plan</h2>
+    <p>Enter one subject per line, followed by its topics separated by commas.</p>
+
+    <label for="subjects">Subjects and Topics</label>
+    <textarea id="subjects" rows="5">Mathematics: Calculus, Algebra, Statistics
+Machine Learning: Python, Linear Regression
+English: Grammar, Essay Writing</textarea>
+
+    <label for="startDate">Start Date</label>
+    <input type="date" id="startDate">
+
+    <label for="examDate">Exam Date</label>
+    <input type="date" id="examDate">
+
+    <label for="hours">Study Hours Per Day</label>
+    <input type="number" id="hours" min="1" max="12" value="2">
+
+    <button onclick="generatePlan()">Generate Study Plan</button>
+    <p id="message" class="message"></p>
+  </section>
+
+  <section id="results" style="display:none">
+
+    <div class="stats">
+      <div class="stat">
+        <p>Total Sessions</p>
+        <h2 id="totalSessions">0</h2>
+      </div>
+
+      <div class="stat">
+        <p>Completed</p>
+        <h2 id="completedSessions">0</h2>
+      </div>
+
+      <div class="stat">
+        <p>Completion</p>
+        <h2 id="completionPercent">0%</h2>
+      </div>
+    </div>
+
+    <section class="card">
+      <h2>Your Study Progress</h2>
+      <div class="progress">
+        <div id="progressBar"></div>
+      </div>
+      <p id="progressText">You have not completed any tasks yet.</p>
+    </section>
+
+    <section class="card">
+      <h2>📅 Your Study Timetable</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Subject</th>
+              <th>Topic</th>
+              <th>Task</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="planTable"></tbody>
+        </table>
+      </div>
+
+      <button class="download" onclick="downloadCSV()">
+        Download Study Plan (CSV)
+      </button>
+    </section>
+  </section>
+
+</main>
+
+<script>
+  // Store all study sessions in this array.
+  let studyPlan = [];
+
+  // Set today's date as the default start date.
+  const today = new Date();
+  const todayString = formatDate(today);
+
+  document.getElementById("startDate").value = todayString;
+
+  // Set a default exam date seven days from today.
+  const nextWeek = new Date(today);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  document.getElementById("examDate").value =
+    formatDate(nextWeek);
+
+  // Format a date as YYYY-MM-DD.
+  function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+  // Read the form and generate the timetable.
+  function generatePlan() {
+    const subjectsText =
+      document.getElementById("subjects").value;
+
+    const startValue =
+      document.getElementById("startDate").value;
+
+    const examValue =
+      document.getElementById("examDate").value;
+
+    const hours =
+      Number(document.getElementById("hours").value);
+
+    const message = document.getElementById("message");
+    message.textContent = "";
+
+    // Validate the user's information.
+    if (!startValue || !examValue || !Number.isInteger(hours)
+        || hours < 1 || hours > 12) {
+      message.textContent =
+        "Please enter valid dates and study hours from 1 to 12.";
+      return;
+    }
+
+    // Use UTC dates to avoid daylight-saving date errors.
+    const start = new Date(startValue + "T00:00:00Z");
+    const exam = new Date(examValue + "T00:00:00Z");
+
+    if (exam < start) {
+      message.textContent =
+        "The exam date must be on or after the start date.";
+      return;
+    }
+
+    // Convert each subject line into individual topics.
+    const topics = [];
+
+    subjectsText.split("\n").forEach(line => {
+      if (!line.includes(":")) return;
+
+      const parts = line.split(":");
+      const subject = parts.shift().trim();
+      const topicText = parts.join(":");
+
+      topicText.split(",").forEach(topic => {
+        topic = topic.trim();
+
+        if (subject && topic) {
+          topics.push({ subject, topic });
+        }
+      });
+    });
+
+    if (topics.length === 0) {
+      message.textContent =
+        "Enter at least one subject and topic using Subject: Topic 1, Topic 2.";
+      return;
+    }
+
+    studyPlan = [];
+    let topicIndex = 0;
+
+    // Create one session for each available study hour.
+    for (let day = new Date(start);
+         day <= exam;
+         day.setUTCDate(day.getUTCDate() + 1)) {
+
+      for (let hour = 1; hour <= hours; hour++) {
+        const topic = topics[topicIndex % topics.length];
+
+        studyPlan.push({
+          date: formatDate(day),
+          subject: topic.subject,
+          topic: topic.topic,
+          task: topicIndex < topics.length
+            ? "New Topic"
+            : "Revision",
+          status: "Pending"
+        });
+
+        topicIndex++;
+      }
+    }
+
+    // Display the generated timetable.
+    document.getElementById("results").style.display = "block";
+    renderPlan();
+  }
+
+  // Display timetable rows and refresh progress.
+  function renderPlan() {
+    const table = document.getElementById("planTable");
+    table.innerHTML = "";
+
+    studyPlan.forEach((item, index) => {
+      const row = document.createElement("tr");
+
+      [
+        item.date,
+        item.subject,
+        item.topic,
+        item.task
+      ].forEach(value => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+
+      const statusCell = document.createElement("td");
+      const checkbox = document.createElement("input");
+
+      checkbox.type = "checkbox";
+      checkbox.checked = item.status === "Completed";
+      checkbox.setAttribute("aria-label",
+        "Mark " + item.topic + " completed");
+
+      checkbox.addEventListener("change", () => {
+        studyPlan[index].status =
+          checkbox.checked ? "Completed" : "Pending";
+
+        renderPlan();
+      });
+
+      statusCell.appendChild(checkbox);
+
+      const statusText = document.createElement("span");
+      statusText.textContent = " " + item.status;
+
+      if (item.status === "Completed") {
+        statusText.className = "done";
+      }
+
+      statusCell.appendChild(statusText);
+      row.appendChild(statusCell);
+      table.appendChild(row);
+    });
+
+    updateProgress();
+  }
+
+  // Calculate how much of the plan is complete.
+  function updateProgress() {
+    const total = studyPlan.length;
+
+    const completed = studyPlan.filter(
+      item => item.status === "Completed"
+    ).length;
+
+    const percent = total
+      ? Math.round((completed / total) * 100)
+      : 0;
+
+    document.getElementById("totalSessions").textContent = total;
+    document.getElementById("completedSessions").textContent =
+      completed;
+    document.getElementById("completionPercent").textContent =
+      percent + "%";
+
+    document.getElementById("progressBar").style.width =
+      percent + "%";
+
+    document.getElementById("progressText").textContent =
+      completed === total
+        ? "Excellent! All your study sessions are completed."
+        : `${completed} of ${total} sessions completed. Keep going!`;
+  }
+
+  // Download the timetable as a CSV spreadsheet.
+  function downloadCSV() {
+    if (studyPlan.length === 0) return;
+
+    const headers = [
+      "Date", "Subject", "Topic", "Task", "Status"
+    ];
+
+    const rows = studyPlan.map(item => [
+      item.date,
+      item.subject,
+      item.topic,
+      item.task,
+      item.status
+    ]);
+
+    // Escape commas, quotes and line breaks in CSV cells.
+    const escapeCSV = value =>
+      '"' + String(value).replace(/"/g, '""') + '"';
+
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeCSV).join(","))
+      .join("\r\n");
+
+    const blob = new Blob(
+      ["\uFEFF" + csv],
+      { type: "text/csv;charset=utf-8;" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "AI_Study_Plan.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+</script>
+
+</body>
+</html>
